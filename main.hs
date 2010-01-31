@@ -1,6 +1,7 @@
 module Main () where
 
 import Data.Array
+import Data.List
 import Graphics.UI.SDL as SDL
 
 cellsize  = 40
@@ -12,42 +13,51 @@ cellcolor = SDL.Pixel 0x00999999
 hlcolor   = SDL.Pixel 0x00991111
 actcolor  = SDL.Pixel 0x00118505
 
-map1 = [[Full,Full,Full,Full,Full,Full],
-        [Empty,Full,Full,Full,Full,Full],
-        [Full,Full,Empty,Empty,Full,Full],
-        [Full,Full,Full,Full,Full,Full],
-        [Full,Full,Full,Full,Full,Full],
-        [Full,Full,Empty,Empty,Full,Full]
-       ]
 
-mapToArray map = listArray ((1,1),(h,w)) $ concat map
-    where h = length map
-          w = length $ head map
+level1 = Level (1,1) 31 (mapToArray map2)
+map2 = ["# #######",
+        "# #     #",
+        "# # ### #",
+        "# #   # #",
+        "# ##### #",
+        "#       #",
+        "#########"]
 
 data Cell = Full | Empty
         deriving (Eq, Show)
 
-board = mapToArray map1
+data Level = Level {
+        lStart  :: (Int,Int),
+        lLength :: Int,
+        lMap    :: Array (Int,Int) Cell
+    } deriving (Show)
+
+mapToArray map = listArray ((1,1),(w,h)) [conv x | x <- concat . transpose $ map]
+    where h = length map
+          w = length $ head map
+          conv ch = case ch of
+              '#' -> Full
+              _   -> Empty
 
 main = do SDL.init [SDL.InitVideo]
           setVideoMode wwidth wheight 32 [HWSurface, DoubleBuf]
           setCaption "hKerixep" []
-          start board
+          start (lMap level1)
 
 start board = do
           screen<- SDL.getVideoSurface
-          mapM_ (draw screen cellcolor) [(x,y)|((x,y),Full) <- assocs board]
-          draw screen actcolor (1,1)
+          mapM_ (draw screen cellcolor) [(x,y)|((x,y),Full) <- assocs (lMap level1)]
+          draw screen actcolor (lStart level1)
           SDL.flip screen
-          eventHandler [(1,1)]
+          eventHandler [lStart level1]
 
 draw screen color (x,y) = SDL.fillRect screen (Just $ SDL.Rect (pos x) (pos y) fill fill) color
         where pos n = padding + (n - 1) * cellsize
               fill = cellsize - border
 
 legalmove (x, y) clist@(c:cs) =
-                   if elem (x,y)  (indices board)
-                      && (board ! (x,y) == Full)
+                   if elem (x,y)  (indices (lMap level1))
+                      && (lMap level1 ! (x,y) == Full)
                       && notElem (x,y) clist
                       && neighbour (x,y) c
                    then (True, (x,y):clist)
@@ -76,5 +86,5 @@ eventHandler clist = do
                                             SDL.flip screen
                                             eventHandler newclist
                                     else eventHandler clist
-    MouseButtonDown _ _ _  -> start board
+    MouseButtonDown _ _ _  -> start (lMap level1)
     _ -> eventHandler clist

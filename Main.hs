@@ -68,7 +68,9 @@ eventHandler clist level = do
                                             draw screen hlcolor $ head clist
                                             draw screen actcolor pos
                                             SDL.flip screen
-                                            eventHandler newclist level
+                                            if length newclist == lLength level
+                                             then do print "A WINNER IS YOU"
+                                             else eventHandler newclist level
                                     else eventHandler clist level
                               where fI = fromIntegral
     MouseButtonDown _ _ _  -> start level

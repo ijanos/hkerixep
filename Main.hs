@@ -25,24 +25,44 @@ main ::  IO ()
 main = do SDL.init [SDL.InitVideo]
           setVideoMode wwidth wheight 32 [HWSurface, DoubleBuf]
           setCaption "hKerixep" []
-          levels <- getLevels
+          intro  <- getLevels "intro.txt"
+          levels <- getLevels "levels.txt"
+          showIntro intro
           start levels
+          putStrLn "a winner is you"
 
-start ::  [Level] -> IO ()
-start levels = do screen<- SDL.getVideoSurface
-                  SDL.fillRect screen
-                               (Just (SDL.Rect 0 0 wwidth wheight)) bgcolor
-                  mapM_ (draw screen cellcolor)
-                        [(x,y)|((x,y),Full) <- assocs . lMap . head $ levels]
-                  draw screen actcolor $ lStart . head $ levels
-                  SDL.flip screen
+
+getCleanScreen = do screen <- SDL.getVideoSurface
+                    SDL.fillRect screen
+                              (Just (SDL.Rect 0 0 wwidth wheight)) bgcolor
+                    return screen
+                 
+drawLevel  screen level = drawLevel' screen cellsize level
+drawLevel' screen size level = do 
+            mapM_ (draw' screen cellcolor size)
+                  [(x,y)|((x,y),Full) <- assocs . lMap $ level]
+            draw' screen actcolor size $ lStart $ level
+            SDL.flip screen
+
+
+showIntro :: [Level] -> IO ()
+showIntro [logo,start] =
+                    do screen <- getCleanScreen
+                       drawLevel' screen 10 logo
+                       drawLevel screen start
+                       eventHandler $ GameState [start] [lStart start]
+            
+                
+start :: [Level] -> IO ()
+start levels = do screen <- getCleanScreen
+                  drawLevel screen $ head levels
                   eventHandler $ GameState levels [lStart (head levels)]
 
-draw ::  Surface -> Pixel -> (Int, Int) -> IO Bool
-draw screen color (x,y) = SDL.fillRect screen (Just rect) color
+draw screen color (x,y) = draw' screen color cellsize (x,y)
+draw' screen color size (x,y) = SDL.fillRect screen (Just rect) color
         where rect = SDL.Rect (pos x) (pos y) fill fill
-              pos n = padding + (n - 1) * cellsize
-              fill = cellsize - border
+              pos n = padding + (n - 1) * size
+              fill = size - border
 
 legalmove :: (Int, Int) -> [(Int, Int)] -> Level -> (Bool, [(Int, Int)])
 legalmove (x, y) clist@(c:cs) level =
@@ -81,7 +101,7 @@ eventHandler gamestate = do
                                 SDL.flip screen
                                 if length cList' == lLength currentlevel
                                  then if null remaininglevels
-                                      then putStrLn "a winner is you"
+                                      then return ()
                                       else start remaininglevels
                                  else eventHandler gamestate {cList = cList'}
                         else eventHandler gamestate

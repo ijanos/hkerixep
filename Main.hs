@@ -33,16 +33,20 @@ main = do SDL.init [SDL.InitVideo]
           putStrLn "a winner is you"
 
 
+getCleanScreen ::  IO Surface
 getCleanScreen = do screen <- SDL.getVideoSurface
                     SDL.fillRect screen
                               (Just (SDL.Rect 0 0 wwidth wheight)) bgcolor
                     return screen
                  
+drawLevel ::  Surface -> Level -> IO ()
 drawLevel  screen level = drawLevel' screen cellsize level
+
+drawLevel' ::  Surface -> Int -> Level -> IO ()
 drawLevel' screen size level = do 
             mapM_ (draw' screen cellcolor size)
                   [(x,y)|((x,y),Full) <- assocs . lMap $ level]
-            draw' screen startcolor size $ lStart $ level
+            draw' screen startcolor size $ lStart level
             SDL.flip screen
 
 
@@ -65,6 +69,7 @@ draw' screen color size (x,y) = SDL.fillRect screen (Just rect) color
               pos n = padding + (n - 1) * size
               fill = size - border
 
+legalNeighbour :: (Int, Int) -> [(Int, Int)] -> Level -> Bool
 legalNeighbour (x,y) clist level =
                 if (lMap level ! (x,y) == Full)
                     && (not $ null clist)

@@ -3,6 +3,7 @@ module Main () where
 import Data.Array
 import Data.List
 import Graphics.UI.SDL as SDL
+import Control.Monad
 
 import Levels
 
@@ -23,7 +24,7 @@ data GameState = GameState {
      } deriving (Show)
 
 main ::  IO ()
-main = do SDL.init [SDL.InitVideo]
+main = do SDL.init []
           setVideoMode wwidth wheight 32 [HWSurface, DoubleBuf]
           setCaption "hKerixep" []
           intro  <- getLevels "intro.txt"
@@ -40,7 +41,7 @@ getCleanScreen = do screen <- SDL.getVideoSurface
                     return screen
                  
 drawLevel ::  Surface -> Level -> IO ()
-drawLevel  screen level = drawLevel' screen cellsize level
+drawLevel screen = drawLevel' screen cellsize
 
 drawLevel' ::  Surface -> Int -> Level -> IO ()
 drawLevel' screen size level = do 
@@ -71,11 +72,10 @@ draw' screen color size (x,y) = SDL.fillRect screen (Just rect) color
 
 legalNeighbour :: (Int, Int) -> [(Int, Int)] -> Level -> Bool
 legalNeighbour (x,y) clist level =
-                if (lMap level ! (x,y) == Full)
-                    && (not $ null clist)
+                (lMap level ! (x,y) == Full)
+                    && not (null clist)
                     && notElem (x,y) clist
                     && neighbour (x,y)  (head clist)
-                then True else False
                 where neighbour (x,y) (x',y') = elem (x,y) [(x'+1,y')
                                                            ,(x'-1,y')
                                                            ,(x',y'+1)
@@ -108,23 +108,22 @@ eventHandler gamestate = do
     MouseMotion x y _ _ -> do
                   let pos = position (fI x) (fI y)
                   let (en,cList') = legalMove pos (cList gamestate) currentlevel
-                  if en then do screen <- SDL.getVideoSurface
-                                drawStep screen cList'
-                                SDL.flip screen
-                                if length cList' == lLength currentlevel
-                                 then if null remaininglevels
-                                      then return ()
-                                      else start remaininglevels
-                                 else eventHandler gamestate {cList = cList'}
-                        else eventHandler gamestate
+                  if en then do 
+                    screen <- SDL.getVideoSurface
+                    drawStep screen cList'
+                    SDL.flip screen
+                    if length cList' == lLength currentlevel
+                         then unless (null remaininglvls) $ start remaininglvls
+                         else eventHandler gamestate {cList = cList'}
+                    else eventHandler gamestate
                   where fI = fromIntegral
-                        remaininglevels = tail . levels $ gamestate
+                        remaininglvls = tail . levels $ gamestate
                         currentlevel = head . levels $ gamestate
     MouseButtonDown _ _ _  -> start $ levels gamestate
     _ -> eventHandler gamestate
 
-drawStep screen clist = do
+drawStep screen clist = 
     if length clist > 1
-      then do draw screen hlcolor (head $ drop 1 clist)
+      then do draw screen hlcolor (clist !! 1)
               draw screen actcolor $ head clist
       else draw screen actcolor $ head clist
